@@ -3,6 +3,7 @@ package github
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github-monitor/internal/db"
@@ -62,25 +63,32 @@ func (s *Service) SyncRepository(ctx context.Context, repoURL string) error {
 		return fmt.Errorf("failed to get last commit date: %w", err)
 	}
 
-	ghCommits, err := s.client.GetCommits(ctx, owner, name, lastCommitDate)
-	if err != nil {
-		return fmt.Errorf("failed to fetch commits: %w", err)
-	}
-
-	commits := make([]*models.Commit, 0, len(ghCommits))
-	for _, ghCommit := range ghCommits {
-		commits = append(commits, &models.Commit{
-			SHA:         ghCommit.SHA,
-			Message:     ghCommit.Message,
-			AuthorName:  ghCommit.AuthorName,
-			AuthorEmail: ghCommit.AuthorEmail,
-			AuthorDate:  ghCommit.AuthorDate,
-			CommitURL:   ghCommit.CommitURL,
-		})
-	}
-
-	if err := s.store.SaveCommits(ctx, repo.ID, commits); err != nil {
-		return fmt.Errorf("failed to save commits: %w", err)
+	page := 1
+	for {
+		log.Printf("Requesting page %d for %s/%s", page, owner, name)
+		commits, err := s.client.GetCommitsPage(ctx, owner, name, lastCommitDate, page)
+		if err != nil {
+			return fmt.Errorf("failed to fetch commits: %w", err)
+		}
+		if len(commits) == 0 {
+			break
+		}
+		var modelCommits []*models.Commit
+		for _, c := range commits {
+			modelCommits = append(modelCommits, &models.Commit{
+				SHA:         c.SHA,
+				Message:     c.Message,
+				AuthorName:  c.AuthorName,
+				AuthorEmail: c.AuthorEmail,
+				AuthorDate:  c.AuthorDate,
+				CommitURL:   c.CommitURL,
+			})
+		}
+		if err := s.store.SaveCommits(ctx, repo.ID, modelCommits); err != nil {
+			return fmt.Errorf("failed to save commits: %w", err)
+		}
+		log.Printf("Saved %d commits for page %d", len(commits), page)
+		page++
 	}
 
 	repo.LastSyncedAt = time.Now()
@@ -88,7 +96,7 @@ func (s *Service) SyncRepository(ctx context.Context, repoURL string) error {
 		return fmt.Errorf("failed to update sync time: %w", err)
 	}
 
-	s.logger.Infof("Synced %s/%s: %d new commits", owner, name, len(commits))
+	s.logger.Infof("Synced %s/%s", owner, name)
 	return nil
 }
 
