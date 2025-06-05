@@ -1,0 +1,171 @@
+basePath: /api/v1
+definitions:
+  api.AuthorStats:
+    properties:
+      commit_count:
+        type: integer
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+  api.Commit:
+    properties:
+      author_date:
+        type: string
+      author_name:
+        type: string
+      html_url:
+        type: string
+      message:
+        type: string
+      sha:
+        type: string
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+    url: http://github.com/yourusername
+  description: API for monitoring GitHub repositories and commits
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: GitHub Monitor API
+  version: "1.0"
+paths:
+  /repos/{owner}/{repo}/commits:
+    get:
+      consumes:
+      - application/json
+      description: Returns paginated commits for a repository
+      parameters:
+      - description: Repository owner
+        in: path
+        name: owner
+        required: true
+        type: string
+      - description: Repository name
+        in: path
+        name: repo
+        required: true
+        type: string
+      - default: 50
+        description: Number of commits to return
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Pagination offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.Commit'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get commits for a repository
+      tags:
+      - repository
+  /repos/{owner}/{repo}/reset:
+    post:
+      consumes:
+      - application/json
+      description: Resets the sync point to fetch commits from a specific date
+      parameters:
+      - description: Repository owner
+        in: path
+        name: owner
+        required: true
+        type: string
+      - description: Repository name
+        in: path
+        name: repo
+        required: true
+        type: string
+      - description: Date to reset sync point to (RFC3339 format)
+        in: query
+        name: since
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Reset repository sync point
+      tags:
+      - repository
+  /repos/{owner}/{repo}/top-authors:
+    get:
+      consumes:
+      - application/json
+      description: Returns the most active contributors to a repository
+      parameters:
+      - description: Repository owner
+        in: path
+        name: owner
+        required: true
+        type: string
+      - description: Repository name
+        in: path
+        name: repo
+        required: true
+        type: string
+      - default: 10
+        description: Number of authors to return
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.AuthorStats'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get top commit authors by commit count
+      tags:
+      - repository
+swagger: "2.0"
