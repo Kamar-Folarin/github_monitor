@@ -11,8 +11,8 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "contact": {
             "name": "API Support",
-            "url": "http://github.com/yourusername",
-            "email": "support@example.com"
+            "url": "http://github.com/Kamar-Folarin",
+            "email": "omofolarinwa.kamar@gamil.com"
         },
         "license": {
             "name": "MIT",
@@ -23,9 +23,33 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/": {
+            "get": {
+                "description": "Configures all API endpoints and middleware",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "setup"
+                ],
+                "summary": "Setup API routes",
+                "responses": {
+                    "200": {
+                        "description": "Router setup successful",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/repos/{owner}/{repo}/commits": {
             "get": {
-                "description": "Returns paginated commits for a repository",
+                "description": "Get a list of commits for a repository with optional date filtering using owner/repo format",
                 "consumes": [
                     "application/json"
                 ],
@@ -35,7 +59,7 @@ const docTemplate = `{
                 "tags": [
                     "repository"
                 ],
-                "summary": "Get commits for a repository",
+                "summary": "Get repository commits",
                 "parameters": [
                     {
                         "type": "string",
@@ -61,29 +85,46 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "default": 0,
-                        "description": "Pagination offset",
+                        "description": "Number of commits to skip",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-20T00:00:00Z\"",
+                        "description": "Filter commits since this date (RFC3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-21T00:00:00Z\"",
+                        "description": "Filter commits until this date (RFC3339)",
+                        "name": "until",
                         "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "List of commits",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/api.Commit"
-                            }
+                            "$ref": "#/definitions/api.CommitListResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -93,7 +134,7 @@ const docTemplate = `{
         },
         "/repos/{owner}/{repo}/reset": {
             "post": {
-                "description": "Resets the sync point to fetch commits from a specific date",
+                "description": "Reset repository sync to start from a specific date using owner/repo format",
                 "consumes": [
                     "application/json"
                 ],
@@ -103,7 +144,7 @@ const docTemplate = `{
                 "tags": [
                     "repository"
                 ],
-                "summary": "Reset repository sync point",
+                "summary": "Reset repository sync",
                 "parameters": [
                     {
                         "type": "string",
@@ -120,16 +161,18 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Date to reset sync point to (RFC3339 format)",
-                        "name": "since",
-                        "in": "query",
-                        "required": true
+                        "description": "Reset request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "202": {
+                        "description": "Reset status",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -138,13 +181,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -152,9 +201,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/repos/{owner}/{repo}/top-authors": {
+        "/repos/{owner}/{repo}/sync-status": {
             "get": {
-                "description": "Returns the most active contributors to a repository",
+                "description": "Get the current sync status of a repository using owner/repo format",
                 "consumes": [
                     "application/json"
                 ],
@@ -164,7 +213,58 @@ const docTemplate = `{
                 "tags": [
                     "repository"
                 ],
-                "summary": "Get top commit authors by commit count",
+                "summary": "Get repository sync status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Repository owner",
+                        "name": "owner",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Repository name",
+                        "name": "repo",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sync status",
+                        "schema": {
+                            "$ref": "#/definitions/api.SyncStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repos/{owner}/{repo}/top-authors": {
+            "get": {
+                "description": "Get statistics about commit authors with optional date filtering using owner/repo format",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repository"
+                ],
+                "summary": "Get repository commit authors",
                 "parameters": [
                     {
                         "type": "string",
@@ -186,20 +286,596 @@ const docTemplate = `{
                         "description": "Number of authors to return",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-20T00:00:00Z\"",
+                        "description": "Filter commits since this date (RFC3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-21T00:00:00Z\"",
+                        "description": "Filter commits until this date (RFC3339)",
+                        "name": "until",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of authors",
+                        "schema": {
+                            "$ref": "#/definitions/api.AuthorListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories": {
+            "get": {
+                "description": "Get a list of all repositories being monitored",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "List all monitored repositories",
+                "responses": {
+                    "200": {
+                        "description": "List of repositories",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.Repository"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a new repository to monitor with optional sync configuration",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Add a new repository",
+                "parameters": [
+                    {
+                        "description": "Add repository request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.AddRepositoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Repository added successfully",
+                        "schema": {
+                            "$ref": "#/definitions/models.Repository"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific repository",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Get repository details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Repository details",
+                        "schema": {
+                            "$ref": "#/definitions/api.Repository"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Stop monitoring a repository and remove it from the system",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Delete a repository",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/authors": {
+            "get": {
+                "description": "Get statistics about commit authors with optional date filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Get repository commit authors",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of authors to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-20T00:00:00Z\"",
+                        "description": "Filter commits since this date (RFC3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-21T00:00:00Z\"",
+                        "description": "Filter commits until this date (RFC3339)",
+                        "name": "until",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of authors",
+                        "schema": {
+                            "$ref": "#/definitions/api.AuthorListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/clear-sync": {
+            "post": {
+                "description": "Forcefully clear a stuck sync status for a repository",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Force clear repository sync status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sync status cleared",
+                        "schema": {
+                            "$ref": "#/definitions/api.SyncStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/commits": {
+            "get": {
+                "description": "Get a list of commits for a repository with optional date filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Get repository commits",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "Number of commits to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Number of commits to skip",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-20T00:00:00Z\"",
+                        "description": "Filter commits since this date (RFC3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"2024-03-21T00:00:00Z\"",
+                        "description": "Filter commits until this date (RFC3339)",
+                        "name": "until",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of commits",
+                        "schema": {
+                            "$ref": "#/definitions/api.CommitListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/reset": {
+            "post": {
+                "description": "Reset repository sync to start from a specific date",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Reset repository sync",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Reset request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Reset status",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/sync": {
+            "get": {
+                "description": "Get the current sync status of a repository",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Get repository sync status",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Sync status",
+                        "schema": {
+                            "$ref": "#/definitions/api.SyncStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Trigger a manual sync of a repository",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Sync a repository",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Sync started",
+                        "schema": {
+                            "$ref": "#/definitions/api.SyncStatus"
+                        }
+                    },
+                    "404": {
+                        "description": "Repository not found",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/repositories/{id}/sync-config": {
+            "put": {
+                "description": "Update the sync configuration for a repository",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "repositories"
+                ],
+                "summary": "Update repository sync configuration",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repository ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Sync configuration",
+                        "name": "config",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RepositorySyncConfig"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/api.AuthorStats"
-                            }
+                            "$ref": "#/definitions/models.Repository"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -212,50 +888,479 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/sync": {
+            "get": {
+                "description": "Get the sync status of all repositories",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sync"
+                ],
+                "summary": "Get all sync statuses",
+                "responses": {
+                    "200": {
+                        "description": "List of sync statuses",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SyncStatus"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Trigger a sync of all monitored repositories",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sync"
+                ],
+                "summary": "Sync all repositories",
+                "responses": {
+                    "202": {
+                        "description": "Sync started for all repositories",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/api.SyncStatus"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
-        "api.AuthorStats": {
+        "api.AddRepositoryRequest": {
+            "description": "Request to add a new repository with optional sync configuration",
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "sync_config": {
+                    "description": "SyncConfig is the optional repository-specific sync configuration\n@Description Optional configuration for repository-specific sync settings",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RepositorySyncConfig"
+                        }
+                    ]
+                },
+                "url": {
+                    "description": "URL is the GitHub repository URL\n@Description The full URL of the GitHub repository to monitor\n@Example https://github.com/owner/repo\n@required",
+                    "type": "string"
+                }
+            }
+        },
+        "api.AuthorListResponse": {
+            "description": "A list of commit authors with metadata",
             "type": "object",
             "properties": {
-                "commit_count": {
-                    "type": "integer"
+                "data": {
+                    "description": "Data contains the list of authors\n@example [{\"author\":\"John Doe\",\"email\":\"john@example.com\",\"commits\":42,\"first_seen\":\"2024-03-20T00:00:00Z\",\"last_seen\":\"2024-03-21T00:00:00Z\"}]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.AuthorStats"
+                    }
+                },
+                "metadata": {
+                    "description": "Metadata contains repository and limit information\n@example {\"repository\":\"https://github.com/owner/repo\",\"limit\":10}",
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "description": "Number of authors to return\n@example 10",
+                            "type": "integer",
+                            "example": 10
+                        },
+                        "repository": {
+                            "description": "URL of the repository\n@example https://github.com/owner/repo",
+                            "type": "string",
+                            "example": "https://github.com/owner/repo"
+                        },
+                        "since": {
+                            "description": "Start date for filtering commits\n@example 2024-03-20T00:00:00Z",
+                            "type": "string",
+                            "example": "2024-03-20T00:00:00Z"
+                        },
+                        "until": {
+                            "description": "End date for filtering commits\n@example 2024-03-21T00:00:00Z",
+                            "type": "string",
+                            "example": "2024-03-21T00:00:00Z"
+                        }
+                    }
+                }
+            }
+        },
+        "api.AuthorStats": {
+            "description": "Statistics for a commit author",
+            "type": "object",
+            "properties": {
+                "author": {
+                    "description": "Name of the author\n@example John Doe",
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "commits": {
+                    "description": "Number of commits by this author\n@example 42",
+                    "type": "integer",
+                    "example": 42
                 },
                 "email": {
-                    "type": "string"
+                    "description": "Email of the author\n@example john@example.com",
+                    "type": "string",
+                    "example": "john@example.com"
                 },
-                "name": {
-                    "type": "string"
+                "first_seen": {
+                    "description": "First seen date\n@example 2024-03-20T00:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-20T00:00:00Z"
+                },
+                "last_seen": {
+                    "description": "Last seen date\n@example 2024-03-21T00:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-21T00:00:00Z"
                 }
             }
         },
         "api.Commit": {
+            "description": "A commit from a GitHub repository",
             "type": "object",
             "properties": {
-                "author_date": {
+                "author": {
+                    "description": "Name of the commit author\n@example John Doe",
+                    "type": "string",
+                    "example": "John Doe"
+                },
+                "created_at": {
+                    "description": "When the commit was created in the system\n@example 2024-01-01T12:00:00Z",
                     "type": "string"
                 },
-                "author_name": {
-                    "type": "string"
+                "date": {
+                    "description": "Date when the commit was authored\n@example 2024-01-01T12:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-20T12:00:00Z"
                 },
-                "html_url": {
-                    "type": "string"
+                "email": {
+                    "description": "Email of the commit author\n@example john@example.com",
+                    "type": "string",
+                    "example": "john@example.com"
+                },
+                "id": {
+                    "description": "ID of the commit\n@example 1",
+                    "type": "integer"
                 },
                 "message": {
-                    "type": "string"
+                    "description": "Commit message\n@example Fix bug in login flow",
+                    "type": "string",
+                    "example": "Fix bug in feature X"
+                },
+                "repo_url": {
+                    "description": "URL of the repository\n@example https://github.com/owner/repo",
+                    "type": "string",
+                    "example": "https://github.com/owner/repo"
                 },
                 "sha": {
+                    "description": "SHA of the commit\n@example abc123def456",
+                    "type": "string",
+                    "example": "a1b2c3d4e5f6"
+                },
+                "updated_at": {
+                    "description": "When the commit was last updated in the system\n@example 2024-01-01T12:00:00Z",
                     "type": "string"
+                },
+                "url": {
+                    "description": "URL to view the commit on GitHub\n@example https://github.com/owner/repo/commit/abc123",
+                    "type": "string",
+                    "example": "https://github.com/owner/repo/commit/a1b2c3d4e5f6"
+                }
+            }
+        },
+        "api.CommitListResponse": {
+            "description": "A paginated list of commits",
+            "type": "object",
+            "properties": {
+                "data": {
+                    "description": "Data contains the list of commits\n@example [{\"id\":1,\"sha\":\"a1b2c3d4e5f6\",\"message\":\"Fix bug in feature X\",\"author_name\":\"John Doe\",\"author_email\":\"john@example.com\",\"author_date\":\"2024-03-20T12:00:00Z\",\"commit_url\":\"https://github.com/owner/repo/commit/a1b2c3d4e5f6\",\"created_at\":\"2024-03-20T12:00:00Z\",\"updated_at\":\"2024-03-20T12:00:00Z\",\"repo_url\":\"https://github.com/owner/repo\"}]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/api.Commit"
+                    }
+                },
+                "pagination": {
+                    "description": "Pagination contains pagination metadata\n@example {\"total\":1000,\"limit\":100,\"offset\":0}",
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "description": "Number of commits per page\n@example 100",
+                            "type": "integer",
+                            "example": 100
+                        },
+                        "offset": {
+                            "description": "Offset for pagination\n@example 0",
+                            "type": "integer",
+                            "example": 0
+                        },
+                        "total": {
+                            "description": "Total number of commits\n@example 1000",
+                            "type": "integer",
+                            "example": 1000
+                        }
+                    }
                 }
             }
         },
         "api.ErrorResponse": {
+            "description": "Error response from the API",
             "type": "object",
             "properties": {
                 "error": {
-                    "type": "string"
+                    "description": "Error message\n@example Invalid repository URL",
+                    "type": "string",
+                    "example": "Failed to process request"
                 }
             }
+        },
+        "api.Repository": {
+            "description": "A GitHub repository being monitored",
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "description": "When the repository was created in the system\n@example 2024-01-01T12:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-20T00:00:00Z"
+                },
+                "description": {
+                    "description": "Description of the repository\n@example A tool for monitoring GitHub repositories",
+                    "type": "string"
+                },
+                "forks_count": {
+                    "description": "Number of forks\n@example 42",
+                    "type": "integer",
+                    "example": 1234
+                },
+                "id": {
+                    "description": "ID of the repository\n@example 1",
+                    "type": "integer",
+                    "example": 1
+                },
+                "language": {
+                    "description": "Primary programming language\n@example Go",
+                    "type": "string",
+                    "example": "C++"
+                },
+                "last_synced_at": {
+                    "description": "When the repository was last synced\n@example 2024-01-01T12:00:00Z",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name of the repository\n@example github-monitor",
+                    "type": "string",
+                    "example": "chromium"
+                },
+                "open_issues": {
+                    "description": "Number of open issues\n@example 5",
+                    "type": "integer",
+                    "example": 100
+                },
+                "stars_count": {
+                    "description": "Number of stars\n@example 100",
+                    "type": "integer",
+                    "example": 5678
+                },
+                "updated_at": {
+                    "description": "When the repository was last updated in the system\n@example 2024-01-01T12:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-21T00:00:00Z"
+                },
+                "url": {
+                    "description": "URL of the repository\n@example https://github.com/owner/repo",
+                    "type": "string",
+                    "example": "https://github.com/chromium/chromium"
+                },
+                "watchers": {
+                    "description": "Number of watchers\n@example 50",
+                    "type": "integer",
+                    "example": 2000
+                }
+            }
+        },
+        "api.SyncStatus": {
+            "description": "Current sync status of a repository",
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Last error message, if any\n@example Failed to fetch commits",
+                    "type": "string",
+                    "example": "Rate limit exceeded"
+                },
+                "is_syncing": {
+                    "description": "Whether the repository is currently syncing\n@example true",
+                    "type": "boolean"
+                },
+                "last_commit_sha": {
+                    "description": "SHA of the last commit synced\n@example abc123def456",
+                    "type": "string"
+                },
+                "last_sync": {
+                    "description": "Last sync time\n@example 2024-01-01T12:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-21T00:00:00Z"
+                },
+                "next_sync": {
+                    "description": "Next sync time\n@example 2024-03-21T01:00:00Z",
+                    "type": "string",
+                    "example": "2024-03-21T01:00:00Z"
+                },
+                "rate_limit": {
+                    "description": "Rate limit information",
+                    "type": "object",
+                    "properties": {
+                        "limit": {
+                            "description": "Total limit\n@example 5000",
+                            "type": "integer",
+                            "example": 5000
+                        },
+                        "remaining": {
+                            "description": "Remaining requests\n@example 4500",
+                            "type": "integer",
+                            "example": 4500
+                        },
+                        "reset": {
+                            "description": "Reset time in Unix timestamp\n@example 1616284800",
+                            "type": "integer",
+                            "example": 1616284800
+                        }
+                    }
+                },
+                "repository_url": {
+                    "description": "URL of the repository\n@example https://github.com/owner/repo",
+                    "type": "string",
+                    "example": "https://github.com/owner/repo"
+                },
+                "start_time": {
+                    "description": "When the sync started\n@example 2024-01-01T12:00:00Z",
+                    "type": "string"
+                },
+                "status": {
+                    "description": "Current sync status\n@example in_progress",
+                    "type": "string",
+                    "enum": [
+                        "idle",
+                        "syncing",
+                        "error"
+                    ],
+                    "example": "syncing"
+                },
+                "sync_duration": {
+                    "description": "Duration of the last sync in seconds\n@example 330",
+                    "type": "integer"
+                },
+                "total_commits": {
+                    "description": "Total number of commits synced\n@example 1000",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.Repository": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "forks_count": {
+                    "type": "integer"
+                },
+                "html_url": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "open_issues_count": {
+                    "type": "integer"
+                },
+                "stargazers_count": {
+                    "type": "integer"
+                },
+                "sync_config": {
+                    "description": "SyncConfig holds repository-specific sync configuration",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.RepositorySyncConfig"
+                        }
+                    ]
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "watchers_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RepositorySyncConfig": {
+            "description": "Repository-specific sync configuration (for example, to enable or disable sync, set a custom interval, or a custom batch size)",
+            "type": "object",
+            "properties": {
+                "batch_size": {
+                    "description": "BatchSize is the custom batch size for this repository (0 means use global default)\n@example 100\n@minimum 0",
+                    "type": "integer"
+                },
+                "enabled": {
+                    "description": "Enabled determines if the repository should be synced\n@example true",
+                    "type": "boolean"
+                },
+                "initial_sync_date": {
+                    "description": "InitialSyncDate is when to start syncing from (if not specified, syncs from beginning)\n@example 2024-03-20T00:00:00Z\n@format date-time",
+                    "type": "string"
+                },
+                "priority": {
+                    "description": "Priority determines sync order (higher number = higher priority)\n@example 0",
+                    "type": "integer"
+                },
+                "sync_interval": {
+                    "description": "SyncInterval is the custom sync interval for this repository in seconds (0 means use global default)\n@example 3600\n@minimum 0",
+                    "type": "integer"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
@@ -265,7 +1370,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
-	Schemes:          []string{},
+	Schemes:          []string{"http", "https"},
 	Title:            "GitHub Monitor API",
 	Description:      "API for monitoring GitHub repositories and commits",
 	InfoInstanceName: "swagger",

@@ -1,38 +1,432 @@
 basePath: /api/v1
 definitions:
-  api.AuthorStats:
+  api.AddRepositoryRequest:
+    description: Request to add a new repository with optional sync configuration
     properties:
-      commit_count:
+      sync_config:
+        allOf:
+        - $ref: '#/definitions/models.RepositorySyncConfig'
+        description: |-
+          SyncConfig is the optional repository-specific sync configuration
+          @Description Optional configuration for repository-specific sync settings
+      url:
+        description: |-
+          URL is the GitHub repository URL
+          @Description The full URL of the GitHub repository to monitor
+          @Example https://github.com/owner/repo
+          @required
+        type: string
+    required:
+    - url
+    type: object
+  api.AuthorListResponse:
+    description: A list of commit authors with metadata
+    properties:
+      data:
+        description: |-
+          Data contains the list of authors
+          @example [{"author":"John Doe","email":"john@example.com","commits":42,"first_seen":"2024-03-20T00:00:00Z","last_seen":"2024-03-21T00:00:00Z"}]
+        items:
+          $ref: '#/definitions/api.AuthorStats'
+        type: array
+      metadata:
+        description: |-
+          Metadata contains repository and limit information
+          @example {"repository":"https://github.com/owner/repo","limit":10}
+        properties:
+          limit:
+            description: |-
+              Number of authors to return
+              @example 10
+            example: 10
+            type: integer
+          repository:
+            description: |-
+              URL of the repository
+              @example https://github.com/owner/repo
+            example: https://github.com/owner/repo
+            type: string
+          since:
+            description: |-
+              Start date for filtering commits
+              @example 2024-03-20T00:00:00Z
+            example: "2024-03-20T00:00:00Z"
+            type: string
+          until:
+            description: |-
+              End date for filtering commits
+              @example 2024-03-21T00:00:00Z
+            example: "2024-03-21T00:00:00Z"
+            type: string
+        type: object
+    type: object
+  api.AuthorStats:
+    description: Statistics for a commit author
+    properties:
+      author:
+        description: |-
+          Name of the author
+          @example John Doe
+        example: John Doe
+        type: string
+      commits:
+        description: |-
+          Number of commits by this author
+          @example 42
+        example: 42
         type: integer
       email:
+        description: |-
+          Email of the author
+          @example john@example.com
+        example: john@example.com
         type: string
-      name:
+      first_seen:
+        description: |-
+          First seen date
+          @example 2024-03-20T00:00:00Z
+        example: "2024-03-20T00:00:00Z"
+        type: string
+      last_seen:
+        description: |-
+          Last seen date
+          @example 2024-03-21T00:00:00Z
+        example: "2024-03-21T00:00:00Z"
         type: string
     type: object
   api.Commit:
+    description: A commit from a GitHub repository
     properties:
-      author_date:
+      author:
+        description: |-
+          Name of the commit author
+          @example John Doe
+        example: John Doe
         type: string
-      author_name:
+      created_at:
+        description: |-
+          When the commit was created in the system
+          @example 2024-01-01T12:00:00Z
         type: string
-      html_url:
+      date:
+        description: |-
+          Date when the commit was authored
+          @example 2024-01-01T12:00:00Z
+        example: "2024-03-20T12:00:00Z"
         type: string
+      email:
+        description: |-
+          Email of the commit author
+          @example john@example.com
+        example: john@example.com
+        type: string
+      id:
+        description: |-
+          ID of the commit
+          @example 1
+        type: integer
       message:
+        description: |-
+          Commit message
+          @example Fix bug in login flow
+        example: Fix bug in feature X
+        type: string
+      repo_url:
+        description: |-
+          URL of the repository
+          @example https://github.com/owner/repo
+        example: https://github.com/owner/repo
         type: string
       sha:
+        description: |-
+          SHA of the commit
+          @example abc123def456
+        example: a1b2c3d4e5f6
+        type: string
+      updated_at:
+        description: |-
+          When the commit was last updated in the system
+          @example 2024-01-01T12:00:00Z
+        type: string
+      url:
+        description: |-
+          URL to view the commit on GitHub
+          @example https://github.com/owner/repo/commit/abc123
+        example: https://github.com/owner/repo/commit/a1b2c3d4e5f6
         type: string
     type: object
+  api.CommitListResponse:
+    description: A paginated list of commits
+    properties:
+      data:
+        description: |-
+          Data contains the list of commits
+          @example [{"id":1,"sha":"a1b2c3d4e5f6","message":"Fix bug in feature X","author_name":"John Doe","author_email":"john@example.com","author_date":"2024-03-20T12:00:00Z","commit_url":"https://github.com/owner/repo/commit/a1b2c3d4e5f6","created_at":"2024-03-20T12:00:00Z","updated_at":"2024-03-20T12:00:00Z","repo_url":"https://github.com/owner/repo"}]
+        items:
+          $ref: '#/definitions/api.Commit'
+        type: array
+      pagination:
+        description: |-
+          Pagination contains pagination metadata
+          @example {"total":1000,"limit":100,"offset":0}
+        properties:
+          limit:
+            description: |-
+              Number of commits per page
+              @example 100
+            example: 100
+            type: integer
+          offset:
+            description: |-
+              Offset for pagination
+              @example 0
+            example: 0
+            type: integer
+          total:
+            description: |-
+              Total number of commits
+              @example 1000
+            example: 1000
+            type: integer
+        type: object
+    type: object
   api.ErrorResponse:
+    description: Error response from the API
     properties:
       error:
+        description: |-
+          Error message
+          @example Invalid repository URL
+        example: Failed to process request
         type: string
+    type: object
+  api.Repository:
+    description: A GitHub repository being monitored
+    properties:
+      created_at:
+        description: |-
+          When the repository was created in the system
+          @example 2024-01-01T12:00:00Z
+        example: "2024-03-20T00:00:00Z"
+        type: string
+      description:
+        description: |-
+          Description of the repository
+          @example A tool for monitoring GitHub repositories
+        type: string
+      forks_count:
+        description: |-
+          Number of forks
+          @example 42
+        example: 1234
+        type: integer
+      id:
+        description: |-
+          ID of the repository
+          @example 1
+        example: 1
+        type: integer
+      language:
+        description: |-
+          Primary programming language
+          @example Go
+        example: C++
+        type: string
+      last_synced_at:
+        description: |-
+          When the repository was last synced
+          @example 2024-01-01T12:00:00Z
+        type: string
+      name:
+        description: |-
+          Name of the repository
+          @example github-monitor
+        example: chromium
+        type: string
+      open_issues:
+        description: |-
+          Number of open issues
+          @example 5
+        example: 100
+        type: integer
+      stars_count:
+        description: |-
+          Number of stars
+          @example 100
+        example: 5678
+        type: integer
+      updated_at:
+        description: |-
+          When the repository was last updated in the system
+          @example 2024-01-01T12:00:00Z
+        example: "2024-03-21T00:00:00Z"
+        type: string
+      url:
+        description: |-
+          URL of the repository
+          @example https://github.com/owner/repo
+        example: https://github.com/chromium/chromium
+        type: string
+      watchers:
+        description: |-
+          Number of watchers
+          @example 50
+        example: 2000
+        type: integer
+    type: object
+  api.SyncStatus:
+    description: Current sync status of a repository
+    properties:
+      error:
+        description: |-
+          Last error message, if any
+          @example Failed to fetch commits
+        example: Rate limit exceeded
+        type: string
+      is_syncing:
+        description: |-
+          Whether the repository is currently syncing
+          @example true
+        type: boolean
+      last_commit_sha:
+        description: |-
+          SHA of the last commit synced
+          @example abc123def456
+        type: string
+      last_sync:
+        description: |-
+          Last sync time
+          @example 2024-01-01T12:00:00Z
+        example: "2024-03-21T00:00:00Z"
+        type: string
+      next_sync:
+        description: |-
+          Next sync time
+          @example 2024-03-21T01:00:00Z
+        example: "2024-03-21T01:00:00Z"
+        type: string
+      rate_limit:
+        description: Rate limit information
+        properties:
+          limit:
+            description: |-
+              Total limit
+              @example 5000
+            example: 5000
+            type: integer
+          remaining:
+            description: |-
+              Remaining requests
+              @example 4500
+            example: 4500
+            type: integer
+          reset:
+            description: |-
+              Reset time in Unix timestamp
+              @example 1616284800
+            example: 1616284800
+            type: integer
+        type: object
+      repository_url:
+        description: |-
+          URL of the repository
+          @example https://github.com/owner/repo
+        example: https://github.com/owner/repo
+        type: string
+      start_time:
+        description: |-
+          When the sync started
+          @example 2024-01-01T12:00:00Z
+        type: string
+      status:
+        description: |-
+          Current sync status
+          @example in_progress
+        enum:
+        - idle
+        - syncing
+        - error
+        example: syncing
+        type: string
+      sync_duration:
+        description: |-
+          Duration of the last sync in seconds
+          @example 330
+        type: integer
+      total_commits:
+        description: |-
+          Total number of commits synced
+          @example 1000
+        type: integer
+    type: object
+  models.Repository:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      forks_count:
+        type: integer
+      html_url:
+        type: string
+      id:
+        type: integer
+      language:
+        type: string
+      name:
+        type: string
+      open_issues_count:
+        type: integer
+      stargazers_count:
+        type: integer
+      sync_config:
+        allOf:
+        - $ref: '#/definitions/models.RepositorySyncConfig'
+        description: SyncConfig holds repository-specific sync configuration
+      updated_at:
+        type: string
+      watchers_count:
+        type: integer
+    type: object
+  models.RepositorySyncConfig:
+    description: Repository-specific sync configuration (for example, to enable or
+      disable sync, set a custom interval, or a custom batch size)
+    properties:
+      batch_size:
+        description: |-
+          BatchSize is the custom batch size for this repository (0 means use global default)
+          @example 100
+          @minimum 0
+        type: integer
+      enabled:
+        description: |-
+          Enabled determines if the repository should be synced
+          @example true
+        type: boolean
+      initial_sync_date:
+        description: |-
+          InitialSyncDate is when to start syncing from (if not specified, syncs from beginning)
+          @example 2024-03-20T00:00:00Z
+          @format date-time
+        type: string
+      priority:
+        description: |-
+          Priority determines sync order (higher number = higher priority)
+          @example 0
+        type: integer
+      sync_interval:
+        description: |-
+          SyncInterval is the custom sync interval for this repository in seconds (0 means use global default)
+          @example 3600
+          @minimum 0
+        type: integer
     type: object
 host: localhost:8080
 info:
   contact:
-    email: support@example.com
+    email: omofolarinwa.kamar@gamil.com
     name: API Support
-    url: http://github.com/yourusername
+    url: http://github.com/Kamar-Folarin
   description: API for monitoring GitHub repositories and commits
   license:
     name: MIT
@@ -40,11 +434,28 @@ info:
   title: GitHub Monitor API
   version: "1.0"
 paths:
+  /:
+    get:
+      consumes:
+      - application/json
+      description: Configures all API endpoints and middleware
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Router setup successful
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Setup API routes
+      tags:
+      - setup
   /repos/{owner}/{repo}/commits:
     get:
       consumes:
       - application/json
-      description: Returns paginated commits for a repository
+      description: Get a list of commits for a repository with optional date filtering
+        using owner/repo format
       parameters:
       - description: Repository owner
         in: path
@@ -62,35 +473,48 @@ paths:
         name: limit
         type: integer
       - default: 0
-        description: Pagination offset
+        description: Number of commits to skip
         in: query
         name: offset
         type: integer
+      - description: Filter commits since this date (RFC3339)
+        example: '"2024-03-20T00:00:00Z"'
+        in: query
+        name: since
+        type: string
+      - description: Filter commits until this date (RFC3339)
+        example: '"2024-03-21T00:00:00Z"'
+        in: query
+        name: until
+        type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: List of commits
           schema:
-            items:
-              $ref: '#/definitions/api.Commit'
-            type: array
+            $ref: '#/definitions/api.CommitListResponse'
         "400":
-          description: Bad Request
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
-      summary: Get commits for a repository
+      summary: Get repository commits
       tags:
       - repository
   /repos/{owner}/{repo}/reset:
     post:
       consumes:
       - application/json
-      description: Resets the sync point to fetch commits from a specific date
+      description: Reset repository sync to start from a specific date using owner/repo
+        format
       parameters:
       - description: Repository owner
         in: path
@@ -102,36 +526,76 @@ paths:
         name: repo
         required: true
         type: string
-      - description: Date to reset sync point to (RFC3339 format)
-        in: query
-        name: since
+      - description: Reset request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Reset status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Reset repository sync
+      tags:
+      - repository
+  /repos/{owner}/{repo}/sync-status:
+    get:
+      consumes:
+      - application/json
+      description: Get the current sync status of a repository using owner/repo format
+      parameters:
+      - description: Repository owner
+        in: path
+        name: owner
+        required: true
+        type: string
+      - description: Repository name
+        in: path
+        name: repo
         required: true
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: OK
+          description: Sync status
           schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad Request
+            $ref: '#/definitions/api.SyncStatus'
+        "404":
+          description: Repository not found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":
-          description: Internal Server Error
+          description: Internal server error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
-      summary: Reset repository sync point
+      summary: Get repository sync status
       tags:
       - repository
   /repos/{owner}/{repo}/top-authors:
     get:
       consumes:
       - application/json
-      description: Returns the most active contributors to a repository
+      description: Get statistics about commit authors with optional date filtering
+        using owner/repo format
       parameters:
       - description: Repository owner
         in: path
@@ -148,24 +612,457 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Filter commits since this date (RFC3339)
+        example: '"2024-03-20T00:00:00Z"'
+        in: query
+        name: since
+        type: string
+      - description: Filter commits until this date (RFC3339)
+        example: '"2024-03-21T00:00:00Z"'
+        in: query
+        name: until
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of authors
+          schema:
+            $ref: '#/definitions/api.AuthorListResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get repository commit authors
+      tags:
+      - repository
+  /repositories:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all repositories being monitored
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of repositories
+          schema:
+            items:
+              $ref: '#/definitions/api.Repository'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List all monitored repositories
+      tags:
+      - repositories
+    post:
+      consumes:
+      - application/json
+      description: Add a new repository to monitor with optional sync configuration
+      parameters:
+      - description: Add repository request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AddRepositoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Repository added successfully
+          schema:
+            $ref: '#/definitions/models.Repository'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Add a new repository
+      tags:
+      - repositories
+  /repositories/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Stop monitoring a repository and remove it from the system
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Delete a repository
+      tags:
+      - repositories
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific repository
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Repository details
+          schema:
+            $ref: '#/definitions/api.Repository'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get repository details
+      tags:
+      - repositories
+  /repositories/{id}/authors:
+    get:
+      consumes:
+      - application/json
+      description: Get statistics about commit authors with optional date filtering
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 10
+        description: Number of authors to return
+        in: query
+        name: limit
+        type: integer
+      - description: Filter commits since this date (RFC3339)
+        example: '"2024-03-20T00:00:00Z"'
+        in: query
+        name: since
+        type: string
+      - description: Filter commits until this date (RFC3339)
+        example: '"2024-03-21T00:00:00Z"'
+        in: query
+        name: until
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of authors
+          schema:
+            $ref: '#/definitions/api.AuthorListResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get repository commit authors
+      tags:
+      - repositories
+  /repositories/{id}/clear-sync:
+    post:
+      consumes:
+      - application/json
+      description: Forcefully clear a stuck sync status for a repository
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sync status cleared
+          schema:
+            $ref: '#/definitions/api.SyncStatus'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Force clear repository sync status
+      tags:
+      - repositories
+  /repositories/{id}/commits:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of commits for a repository with optional date filtering
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 100
+        description: Number of commits to return
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Number of commits to skip
+        in: query
+        name: offset
+        type: integer
+      - description: Filter commits since this date (RFC3339)
+        example: '"2024-03-20T00:00:00Z"'
+        in: query
+        name: since
+        type: string
+      - description: Filter commits until this date (RFC3339)
+        example: '"2024-03-21T00:00:00Z"'
+        in: query
+        name: until
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of commits
+          schema:
+            $ref: '#/definitions/api.CommitListResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get repository commits
+      tags:
+      - repositories
+  /repositories/{id}/reset:
+    post:
+      consumes:
+      - application/json
+      description: Reset repository sync to start from a specific date
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Reset request
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Reset status
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Reset repository sync
+      tags:
+      - repositories
+  /repositories/{id}/sync:
+    get:
+      consumes:
+      - application/json
+      description: Get the current sync status of a repository
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sync status
+          schema:
+            $ref: '#/definitions/api.SyncStatus'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get repository sync status
+      tags:
+      - repositories
+    post:
+      consumes:
+      - application/json
+      description: Trigger a manual sync of a repository
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Sync started
+          schema:
+            $ref: '#/definitions/api.SyncStatus'
+        "404":
+          description: Repository not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Sync a repository
+      tags:
+      - repositories
+  /repositories/{id}/sync-config:
+    put:
+      consumes:
+      - application/json
+      description: Update the sync configuration for a repository
+      parameters:
+      - description: Repository ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Sync configuration
+        in: body
+        name: config
+        required: true
+        schema:
+          $ref: '#/definitions/models.RepositorySyncConfig'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/api.AuthorStats'
-            type: array
+            $ref: '#/definitions/models.Repository'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/api.ErrorResponse'
-      summary: Get top commit authors by commit count
+      summary: Update repository sync configuration
       tags:
-      - repository
+      - repositories
+  /sync:
+    get:
+      consumes:
+      - application/json
+      description: Get the sync status of all repositories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of sync statuses
+          schema:
+            items:
+              $ref: '#/definitions/api.SyncStatus'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get all sync statuses
+      tags:
+      - sync
+    post:
+      consumes:
+      - application/json
+      description: Trigger a sync of all monitored repositories
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Sync started for all repositories
+          schema:
+            items:
+              $ref: '#/definitions/api.SyncStatus'
+            type: array
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Sync all repositories
+      tags:
+      - sync
+schemes:
+- http
+- https
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

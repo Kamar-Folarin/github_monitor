@@ -9,17 +9,21 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	"github.com/rs/cors"
 	"github.com/sirupsen/logrus"
 
-	"github-monitor/internal/api"
-	"github-monitor/internal/config"
-	"github-monitor/internal/db"
-	"github-monitor/internal/github"
+	"github.com/Kamar-Folarin/github-monitor/internal/api"
+	"github.com/Kamar-Folarin/github-monitor/internal/config"
+	"github.com/Kamar-Folarin/github-monitor/internal/db"
+	"github.com/Kamar-Folarin/github-monitor/internal/github"
 
-	_ "github-monitor/docs"
+	_ "github.com/Kamar-Folarin/github-monitor/docs"
+)
+
+// Constants
+const (
+	defaultPort    = "8080"
+	defaultSyncInt = 1 * time.Hour
 )
 
 // @title GitHub Monitor API
@@ -27,11 +31,15 @@ import (
 // @description API for monitoring GitHub repositories and commits
 // @contact.name API Support
 // @contact.url http://github.com/Kamar-Folarin
-// @contact.email omofolarinwa.kamar@gmail.com
+// @contact.email omofolarinwa.kamar@gamil.com
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 // @host localhost:8080
 // @BasePath /api/v1
+// @schemes http https
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 func main() {
 	// Load environment variables
 	if err := godotenv.Load(); err != nil {
@@ -46,9 +54,11 @@ func main() {
 	logger.SetOutput(os.Stdout)
 
 	// Load configuration with defaults
-	cfg, err := config.Load()
-	if err != nil {
-		logger.Fatalf("Failed to load configuration: %v", err)
+	cfg := &config.Config{
+		Port:              getEnv("PORT", defaultPort),
+		DBConnectionString: os.Getenv("DB_CONNECTION_STRING"),
+		GitHubToken:       os.Getenv("GITHUB_TOKEN"),
+		SyncInterval:      defaultSyncInt,
 	}
 
 	// Validate minimum required config
@@ -69,24 +79,51 @@ func main() {
 		logger.Fatalf("Failed to run migrations after retries: %v", err)
 	}
 
+	// Initialize GitHub client
+	client := github.NewGitHubClient(cfg.GitHubToken, logger)
+
 	// Initialize services
-	githubService := github.NewService(cfg.GitHubToken, dbStore, logger)
-	apiHandler := api.NewHandler(githubService, logger)
+	syncCfg := &config.SyncConfig{
+		MaxConcurrentSyncs: 3,
+		BatchSize:         100,
+		StatusPersistenceInterval: time.Minute,
+		BatchConfig: config.BatchConfig{
+			Size:       1000,
+			Workers:    3,
+			MaxRetries: 3,
+			BatchDelay: time.Second,
+			MaxCommits: 0,
+		},
+	}
+
+	// Create status manager first
+	statusManager := github.NewStatusManager(dbStore)
+
+	// Create repository service with status manager
+	repoService := github.NewRepositoryService(client, dbStore, &config.GitHubConfig{}, statusManager)
+
+	// Create commit service
+	commitService := github.NewCommitService(client, dbStore, syncCfg)
+
+	// Create sync service
+	syncService := github.NewSyncService(repoService, commitService, statusManager, syncCfg)
+
+	// Create API handler with all required services
+	apiHandler := api.NewHandler(
+		repoService,    // RepositoryService
+		commitService,  // CommitService
+		syncService,    // SyncService
+		statusManager,  // StatusManager
+		logger,
+	)
 
 	// Setup router with middleware
-	router := mux.NewRouter()
-	api.RegisterRoutes(router, apiHandler)
-	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"*"},
-		AllowCredentials: true,
-	}).Handler(router)
+	router := api.SetupRouter(apiHandler)
 
 	// Create HTTP server
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
-		Handler:      corsHandler,
+		Handler:      router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 30 * time.Second,
 		IdleTimeout:  60 * time.Second,
@@ -100,10 +137,21 @@ func main() {
 		}
 	}()
 
-	// Start background sync with test repository
+	// Start background sync with all monitored repositories
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go githubService.StartSync(ctx, cfg.SyncInterval, cfg.DefaultSyncRepo)
+
+	// Start sync for all repositories
+	repos, err := repoService.ListRepositories(ctx)
+	if err != nil {
+		logger.Errorf("Failed to list repositories: %v", err)
+	} else {
+		for _, repo := range repos {
+			if err := syncService.StartSync(ctx, repo.URL); err != nil {
+				logger.Errorf("Failed to start sync for repository %s: %v", repo.URL, err)
+			}
+		}
+	}
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
@@ -120,7 +168,14 @@ func main() {
 	logger.Info("Server exited properly")
 }
 
-// retry retries a function up to a certain number of attempts with a delay between attempts
+// Helper functions
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
 func retry(attempts int, sleep time.Duration, fn func() error) error {
 	if err := fn(); err != nil {
 		if attempts--; attempts > 0 {
