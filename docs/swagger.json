@@ -21,30 +21,6 @@
     "host": "localhost:8080",
     "basePath": "/api/v1",
     "paths": {
-        "/": {
-            "get": {
-                "description": "Configures all API endpoints and middleware",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "setup"
-                ],
-                "summary": "Setup API routes",
-                "responses": {
-                    "200": {
-                        "description": "Router setup successful",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/repos/{owner}/{repo}/commits": {
             "get": {
                 "description": "Get a list of commits for a repository with optional date filtering using owner/repo format",

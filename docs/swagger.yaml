@@ -434,22 +434,6 @@ info:
   title: GitHub Monitor API
   version: "1.0"
 paths:
-  /:
-    get:
-      consumes:
-      - application/json
-      description: Configures all API endpoints and middleware
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Router setup successful
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Setup API routes
-      tags:
-      - setup
   /repos/{owner}/{repo}/commits:
     get:
       consumes:
